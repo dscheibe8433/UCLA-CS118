@@ -134,8 +134,20 @@ char* parse_request(char* req) {
     }
     ret_str[size] = '\0';
 }
-  printf("File: %s", ret_str);
+  printf("File: %s\n", ret_str);
   return ret_str;
+}
+
+char* get_request_type(char* req) {
+  if (req == NULL || strlen(req) < 3)
+    return NULL;
+
+  int size = 0;
+  for (; req[size] != '\0' && req[size] != ' '; size++) ;
+  char* ret_req = (char *) malloc(sizeof(char) * size+1);
+  memcpy(ret_req, req, size);
+  ret_req[size] = '\0';
+  return ret_req;
 }
 
 /******** DOSTUFF() *********************
@@ -152,8 +164,30 @@ void dostuff (int sock)
   n = read(sock,buffer,255);
   if (n < 0) error("ERROR reading from socket");
 
-  char* filename = parse_request(buffer);
+  char* request_type = get_request_type(buffer);
+  if (request_type == NULL) {
+    printf("Bad request\n");
+    write(sock, "HTTP/1.1 400 Bad Request\n", 23);
+    write(sock, "Connection: close\n\n", 19);
+    return;
+  }
 
+  if (strcmp(request_type, "GET")) {
+    printf("Unsupported request type %s\n", request_type);
+    write(sock, "HTTP/1.1 400 Bad Request\n", 23);
+    write(sock, "Connection: close\n\n", 19);
+    return;
+  }
+
+  printf("Request type: %s\n", request_type);
+
+  char* filename = parse_request(buffer);
+  if (filename == NULL) {
+    printf("Bad request\n");
+    write(sock, "HTTP/1.1 400 Bad Request\n", 23);
+    write(sock, "Connection: close\n\n", 19);
+    return;
+  }
   printf("Here is the message: %s\n",buffer);
   
   int f_size = get_filesize(filename);
@@ -180,6 +214,7 @@ void dostuff (int sock)
 
   printf("Done transfering file\n");
   
+  free(filename);
   free(file_data);
   fclose(f);
   return;
