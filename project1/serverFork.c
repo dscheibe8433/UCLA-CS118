@@ -92,15 +92,14 @@ int is_valid_file(const char *filename)
     fclose(fp);
     return 1;
   }
-  else {
-    fclose(fp);
+  else
     return 0;
-  }
 }
 
 int get_filesize(char* filename) {
   if (!(is_valid_file(filename)))
     return -1;
+
   FILE* f = fopen(filename, "r");
   fseek(f, 0L, SEEK_END);
   int filesize = (int) ftell(f);
@@ -163,19 +162,19 @@ void dostuff (int sock)
   bzero(buffer,256);
   n = read(sock,buffer,255);
   if (n < 0) error("ERROR reading from socket");
-
   char* request_type = get_request_type(buffer);
   if (request_type == NULL) {
     printf("Bad request\n");
     write(sock, "HTTP/1.1 400 Bad Request\n", 23);
     write(sock, "Connection: close\n\n", 19);
+    write(sock, "400 Bad Request", 15);
     return;
   }
-
   if (strcmp(request_type, "GET")) {
     printf("Unsupported request type %s\n", request_type);
     write(sock, "HTTP/1.1 400 Bad Request\n", 23);
     write(sock, "Connection: close\n\n", 19);
+    write(sock, "400 Bad Request", 15);
     return;
   }
 
@@ -186,15 +185,17 @@ void dostuff (int sock)
     printf("Bad request\n");
     write(sock, "HTTP/1.1 400 Bad Request\n", 23);
     write(sock, "Connection: close\n\n", 19);
+    write(sock, "400 Bad Request", 15);
     return;
   }
   printf("Here is the message: %s\n",buffer);
-  
   int f_size = get_filesize(filename);
+
   if (f_size == -1) {
     printf("Could not find file %s\n", filename);
     write(sock, "HTTP/1.1 404 Not Found\n", 23);
     write(sock, "Connection: close\n\n", 19);
+    write(sock, "404 Not Found", 13);
     error("ERROR: Could not find file");
   }
   n = write(sock, "HTTP/1.1 200 OK\n", 16);
