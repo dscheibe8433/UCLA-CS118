@@ -1,0 +1,51 @@
+SENDER:
+// listen on a port
+// when you get a new request
+	// accept
+	// fork
+		// child fork function
+
+SENDER FORKED-CHILD FUNCTION:
+	// check if requested file exists
+	// get file size & determine how many packets we need to send (total_packets & num_bytes)
+	// set window size?
+	// n_acked_packets = 0
+	// n_unacked_packets = 0
+	// time_queue
+	// seq # queue
+	// while n_acked_packets < total_packets
+	//	while n_unacked_packets < cwnd
+	//		send packet
+	//		if last packet, trigger FIN flag
+	//		add seq num and current time to queues
+	//		increment n_unacked_packets
+	// listen for acks
+	// pop them off the queue if they are good time-wise, decrement n_unacked_packets, increment n_acked
+	// if they are not good time-wise
+	//	pop all cwnd items off the time-queue
+	//	resend all N seq # packets and update time queue
+
+Do you need a seperate thread listening for acks at all times?
+If so, how to share information with the thread that is actively sending
+packets? Maybe a shared queue, sender is always trying to dequeue and
+the listener is always trying to enqueue
+
+
+The code below assumes that the server will always send its first packet
+with sequence number 1
+
+RECIEVER:
+	// create a new socket
+	// send a file request to the server
+	// recieved_fin_flag = 0
+	// expected_seq_num = 1
+	// while not recieved_fin_flag
+	//	read from socket
+	//	if the data is not corrupt and has the expected seq#
+	//	send ack with that value
+	//	expected_seq_number++
+
+Reciever does nothing when when it recieves a packet out of order. Timeout will occur and
+the server will resend the packets anyways.
+What happens when you have multiple data packets when you read from socket. How can you 
+read one packet at a time?
