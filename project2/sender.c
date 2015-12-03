@@ -98,6 +98,7 @@ int main(int argc, char *argv[])
     int sent_bits;
     int start_seq;
     int last_packet_bits;
+    int reset = 0;
     char filename[256];
 
      sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -117,21 +118,54 @@ int main(int argc, char *argv[])
      bzero(&in_pkt, sizeof(in_pkt));
      int file_size;
      while (1) {
-        if (recvfrom(sockfd, &in_pkt, sizeof(in_pkt), 0, (struct sockaddr *)&cli_addr, &client_len) < 0) {
-            //perror("Packet lost\n");
-            continue;
+        if (!reset) {
+            if (recvfrom(sockfd, &in_pkt, sizeof(in_pkt), 0, (struct sockaddr *)&cli_addr, &client_len) < 0) {
+                //perror("Packet lost\n");
+                continue;
+            }
+            printf("SERVER: Got packet from client\n");
+            if (in_pkt.tpe != 0) {
+                printf("Got packet without expected setup type. Ignoring packet.");
+                continue;
+            }
         }
-        printf("SERVER: Got packet from client\n");
-        if (in_pkt.tpe != 0) {
-            printf("Got packet without expected setup type. Ignoring packet.");
-            continue;
-        }
+        reset = 0;
         file_size = get_filesize(in_pkt.data);
-        printf("Filesize = %i\n", (int)file_size);
         if (file_size == -1) {
-            error("Invalid file name\n");
-            // TODO: Close connection?
+            perror("Invalid file name\n");
+
+            // SEND FIN
+            bzero(&out_pkt, sizeof(out_pkt));
+            out_pkt.tpe = 3;
+            printf("SERVER: Sending FIN packet because invalid filename received:\n");
+            print_packet(&out_pkt);
+            if (sendto(sockfd, &out_pkt, sizeof(out_pkt), 0, (struct sockaddr *)&cli_addr, client_len) < 0)
+                error("Error sending packet\n");
+            bzero(&in_pkt, sizeof(in_pkt));
+            while (1) {
+                struct timeval tv;
+                tv.tv_sec = TIMEOUT;
+                tv.tv_usec = u_TIMEOUT;
+                if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
+                    perror("Error");
+                }
+                if (recvfrom(sockfd, &in_pkt, sizeof(in_pkt), 0, (struct sockaddr *)&cli_addr, &client_len) < 0) {
+                    // perror("Packet lost\n");
+                    bzero(&out_pkt, sizeof(out_pkt));
+                    out_pkt.tpe = 3;
+                    printf("SERVER: Timeout sending FIN. resending:\n");
+                    print_packet(&out_pkt);
+                    if (sendto(sockfd, &out_pkt, sizeof(out_pkt), 0, (struct sockaddr *)&cli_addr, client_len) < 0)
+                        error("Error sending packet\n");
+                    continue;
+                }
+                if (in_pkt.tpe == 3)
+                    printf("SERVER: received FIN from client\n");
+                    break;
+            }
+            continue;
         }
+        printf("Filesize = %i\n", (int)file_size);
         acked_packets = 0;
         unacked_packets = 0;
         seq_num = 0;
@@ -196,6 +230,15 @@ int main(int argc, char *argv[])
                 print_packet(&in_pkt);
                 continue;
             }
+            if (in_pkt.tpe == 3) {
+                printf("SERVER: Received FIN packet, ending connection\n");
+                break;
+            }
+            if (in_pkt.tpe == 0) {
+                printf("SERVER: Received new connection packet. Resetting process\n");
+                reset = 1;
+                break;
+            }
             if (in_pkt.tpe == 2) {
                 if (in_pkt.seq >= expected_ack && in_pkt.seq < seq_num) {
                     printf("SERVER: recieved packet with in range ack:\n");
@@ -212,6 +255,8 @@ int main(int argc, char *argv[])
                 }
             }
         }
+        if (reset)
+            continue;
         bzero(&out_pkt, sizeof(out_pkt));
         out_pkt.tpe = 3;
         printf("SERVER: recieved all acks. Sending FIN packet:\n");
