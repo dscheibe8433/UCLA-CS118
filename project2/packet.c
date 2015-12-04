@@ -1,4 +1,4 @@
-#define DATA_LEN 10
+#define DATA_LEN 800
 
 struct packet
 {

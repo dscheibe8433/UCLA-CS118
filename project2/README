@@ -1,0 +1,6 @@
+To compile the program, run make. the command "make clean" will remove all the files with the _transfer extension, all files that end in ~, and the executables. To run the executables, use the following commands:
+
+./sender <PORT NUM> <WINDOWN SIZE> <PROB LOSS> <PROB CORRUPT>
+./receiver <SERVER NAME> <SERVER PORT> <FILENAME> <PROB LOSS> <PROB CORRUPT>
+
+To test, use localhost as the server name. Filename represents the file that the receiver wants to be transfered, prob loss is the probability a packet is lost, and prob corrupt is the probability a packet is corrupt. Both of these values should be floats in range 0-1.
